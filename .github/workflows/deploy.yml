@@ -1,0 +1,89 @@
+name: deploy-staging
+
+# Publica ghcr.io/domicilia/auth-domicilia en cada push a master. Mismo
+# patrón que domicilia-api/.github/workflows/deploy.yml: build+push aquí,
+# el despliegue real (docker compose up -d auth en la VM) se hace a mano por
+# ahora — es la primera vez que este servicio se despliega, y automatizar el
+# SSH/rollback antes de haberlo hecho una vez a mano a propósito sería
+# construir sobre un despliegue que nadie ha verificado todavía.
+#
+# Este fork nunca cambia el código Go (toda la configuración de Domicilia
+# vive en variables de entorno, ver .env.docker), así que "calidad" aquí es
+# deliberadamente más liviano que en domicilia-api: compila y pasa go vet,
+# no corre la suite completa de GoTrue (necesitaría una Postgres real con
+# las 75 migraciones aplicadas, y no estamos tocando esa lógica).
+
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging-auth
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: domicilia/auth-domicilia
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build (target linux/amd64, igual que la imagen)
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o auth-check .
+
+  build:
+    needs: quality
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # "staging" es el puntero móvil que consume stack/docker-compose.yml
+          # (IMAGE_TAG=staging). "prod" se promociona a mano después de
+          # validar en staging — mismo patrón de domicilia-api, sin el
+          # promote.yml todavía (primer despliegue, ver comentario arriba).
+          tags: |
+            type=raw,value=staging
+            type=sha,format=short
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false

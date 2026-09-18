@@ -1,10 +1,14 @@
 name: Release
 
+# Desactivado para este fork: el job de abajo necesita GH_AUTOFIX_APP_ID /
+# GH_AUTOFIX_PRIVATE_KEY (credenciales de la GitHub App interna de Supabase)
+# y termina publicando en supabase/gotrue, DockerHub y un bucket S3 de
+# Supabase — nada de eso existe ni tiene sentido aquí. Con "on: push" se
+# ejecutaba y fallaba en el primer paso en cada push a master. Se deja el
+# archivo (por si alguna vez hace falta consultarlo) pero solo disparable a
+# mano, nunca automático.
 on:
-  push:
-    branches:
-      - master
-      - release/*
+  workflow_dispatch:
 
 permissions:
   contents: write
