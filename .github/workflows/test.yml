@@ -1,11 +1,13 @@
 name: Test
 
+# Desactivado para este fork: todos los jobs piden runners "blacksmith-*"
+# (un proveedor de runners de pago que la organización domicilia no tiene),
+# así que en cada push se quedaban en "queued" para siempre. Este fork no
+# modifica el código Go de GoTrue — la calidad que sí importa (go vet +
+# build para linux/amd64) la cubre deploy.yml. Se deja el archivo por si algún
+# día se quiere correr la suite completa, pero solo a mano.
 on:
-  pull_request:
-  push:
-    branches:
-      - master
-    tags: ["*"]
+  workflow_dispatch:
 
 permissions:
   contents: read

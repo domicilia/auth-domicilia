@@ -1,12 +1,11 @@
 name: Dogfooding Check
 
+# Desactivado para este fork: solo tiene sentido en el flujo de release de
+# Supabase (compara contra la rama release-please de upstream) y pide un
+# runner "blacksmith-*" que esta organización no tiene — se quedaba en
+# "queued" para siempre. Solo a mano.
 on:
-  pull_request_review:
-    types: [submitted, edited]
-
-  pull_request:
-
-  push:
+  workflow_dispatch:
 
 permissions:
   contents: read
